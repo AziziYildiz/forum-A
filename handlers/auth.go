@@ -107,22 +107,114 @@ func handleGoogleRegister(w http.ResponseWriter, r *http.Request) {
 	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
+
+// func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+// 	state := r.FormValue("state") //güvenliği artırmak
+// 	stateParts := strings.Split(state, ":")
+// 	if len(stateParts) != 2 || stateParts[0] != strings.Split(oauthStateString, ":")[0] {
+// 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 		return
+// 	}
+// 	//Google tarafından geri yönlendirilen URL'den code parametresini alır.
+// 	code := r.FormValue("code")
+// 	token, err := googleOauthConfig.Exchange(context.Background(), code) //kodu erişim tokenına dönüştürür.
+// 	if err != nil {
+// 		fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
+// 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 		return
+// 	}
+// 	//Erişim tokenını kullanarak Google OAuth2 API'sinden kullanıcı bilgilerini almak.
+// 	resp, err := http.Get(fmt.Sprintf("https://www.googleapis.com/oauth2/v2/userinfo?access_token=%s", token.AccessToken))
+// 	if err != nil {
+// 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 		return
+// 	}
+// 	defer resp.Body.Close()
+
+// 	var googleUser struct {
+// 		ID            string `json:"id"`
+// 		Email         string `json:"email"`
+// 		VerifiedEmail bool   `json:"verified_email"`
+// 		Name          string `json:"name"`
+// 		Picture       string `json:"picture"`
+// 	}
+
+// 	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil { //alınan yanıtı googleUser struct'ına dönüştürmek.
+// 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 		return
+// 	}
+
+// 	var userID int
+// 	err = utils.Db.QueryRow("SELECT id FROM users WHERE email = ?", googleUser.Email).Scan(&userID)
+// 	if err != nil && err != sql.ErrNoRows {
+// 		fmt.Printf("Error querying user: %v", err)
+// 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 		return
+// 	}
+// 	value := stateParts[1]
+
+// 	if value == "GoogleLogin" {
+// 		if userID == 0 {
+// 			utils.RenderTemplate(w, "templates/login.html", map[string]interface{}{
+// 				"LoginErrorMsg": "Email not registered. Please register first.",
+// 			})
+// 			return
+// 		}
+// 	} else if value == "GoogleRegister" {
+// 		if userID != 0 {
+// 			utils.RenderTemplate(w, "templates/register.html", map[string]interface{}{
+// 				"RegisterErrorMsg": "Email already registered",
+// 			})
+// 			return
+// 		}
+
+// 		username := googleUser.Name
+// 		// Aynı kullanıcı adını kontrol et
+// 		for {
+// 			var existingUserID int
+// 			err = utils.Db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&existingUserID)
+// 			if err == sql.ErrNoRows {
+// 				break
+// 			}
+// 			if err != nil {
+// 				fmt.Printf("Error checking existing username: %v", err)
+// 				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 				return
+// 			}
+// 			// Rastgele sayı ekleyerek kullanıcı adını değiştir
+// 			username, err = generateRandomUsername(googleUser.Name)
+// 			if err != nil {
+// 				fmt.Printf("Error generating random username: %v", err)
+// 				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+// 				return
+// 			}
+// 		}
+
+// 		utils.RenderTemplate(w, "templates/username_conflict.html", map[string]interface{}{
+// 			"BaseUsername":      googleUser.Name,
+// 			"SuggestedUsername": username,
+// 			"Email":             googleUser.Email,
+// 			"IconURL":           googleUser.Picture,
+// 		})
+// 	}
+// }
 func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-	state := r.FormValue("state") //güvenliği artırmak
+	state := r.FormValue("state")
 	stateParts := strings.Split(state, ":")
 	if len(stateParts) != 2 || stateParts[0] != strings.Split(oauthStateString, ":")[0] {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-	//Google tarafından geri yönlendirilen URL'den code parametresini alır.
+	value := stateParts[1]
+
 	code := r.FormValue("code")
-	token, err := googleOauthConfig.Exchange(context.Background(), code) //kodu erişim tokenına dönüştürür.
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-	//Erişim tokenını kullanarak Google OAuth2 API'sinden kullanıcı bilgilerini almak.
+
 	resp, err := http.Get(fmt.Sprintf("https://www.googleapis.com/oauth2/v2/userinfo?access_token=%s", token.AccessToken))
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
@@ -138,7 +230,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		Picture       string `json:"picture"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil { //alınan yanıtı googleUser struct'ına dönüştürmek.
+	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
@@ -150,7 +242,6 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-	value := stateParts[1]
 
 	if value == "GoogleLogin" {
 		if userID == 0 {
@@ -180,7 +271,6 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 				return
 			}
-			// Rastgele sayı ekleyerek kullanıcı adını değiştir
 			username, err = generateRandomUsername(googleUser.Name)
 			if err != nil {
 				fmt.Printf("Error generating random username: %v", err)
@@ -195,7 +285,20 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			"Email":             googleUser.Email,
 			"IconURL":           googleUser.Picture,
 		})
+		return
 	}
+
+	sessionToken := utils.GenerateSessionToken()
+	expiration := time.Now().Add(24 * time.Hour)
+
+	_, err = utils.Db.Exec("UPDATE users SET session_token = ?, token_expires = ? WHERE id = ?", sessionToken, expiration, userID)
+	if err != nil {
+		http.Error(w, "Failed to update session token.", http.StatusInternalServerError)
+		return
+	}
+
+	utils.SetLoginCookie(w, userID, sessionToken, int(time.Until(expiration).Seconds()))
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func generateNonce() string {
@@ -262,9 +365,9 @@ func generateRandomUsername(baseUsername string) (string, error) {
 }
 
 func handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
-	oauthStateStringGitHub = generateNonce() + ":GitHubLogin"
+	oauthStateStringGitHub = generateNonce() + ":GitHubLogin" //kimlik doğrulama işlemi ,state
 	url := githubOauthConfig.AuthCodeURL(oauthStateStringGitHub, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect) //yetkilendirme URL'sine yönlendir
 }
 
 func handleGitHubRegister(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +377,7 @@ func handleGitHubRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
-	state := r.FormValue("state")
+	state := r.FormValue("state") //güvenliği artırmak
 	stateParts := strings.Split(state, ":")
 	if len(stateParts) != 2 || stateParts[0] != strings.Split(oauthStateStringGitHub, ":")[0] {
 		log.Printf("Invalid state: %s", state)
@@ -282,9 +385,9 @@ func handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	value := stateParts[1]
-
+	//Google tarafından geri yönlendirilen URL'den code parametresini alır.
 	code := r.FormValue("code")
-	token, err := githubOauthConfig.Exchange(context.Background(), code)
+	token, err := githubOauthConfig.Exchange(context.Background(), code) //kodu erişim tokenına dönüştürür.
 	if err != nil {
 		log.Printf("oauthConfGitHub.Exchange() failed with '%s'", err)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
